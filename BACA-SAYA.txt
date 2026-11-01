@@ -1,0 +1,8 @@
+Isi folder ini = seluruh berkas kucing (tanpa data apa pun dari aplikasimu), aman untuk repo PUBLIK.
+1. github.com -> New repository -> nama: ungkep-jowo-kucing -> pilih Public -> Create.
+2. "uploading an existing file" -> tarik SEMUA berkas folder ini (termasuk .nojekyll) -> Commit.
+3. Repo itu -> Settings -> Pages -> Source: Deploy from a branch -> Branch: main, folder: / (root) -> Save.
+4. Tunggu 1-2 menit lalu buka: https://salisbudiprasetyo.github.io/ungkep-jowo-kucing/index.html  (harus muncul kucing).
+5. Streamlit Cloud -> app -> Settings -> Secrets, tambahkan baris:
+   KUCING_URL = "https://salisbudiprasetyo.github.io/ungkep-jowo-kucing/"
+Ganti musim: edit tema.json di repo itu (ubah "aktif"), commit.

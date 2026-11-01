@@ -1,0 +1,6 @@
+streamlit>=1.66,<2
+pandas
+gspread>=6.0
+google-auth
+pillow
+openpyxl

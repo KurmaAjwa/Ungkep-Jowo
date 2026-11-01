@@ -1,0 +1,45 @@
+{
+ "aktif": "normal",
+ "tema": {
+  "normal": {},
+  "dingin": {
+   "tint": "rgba(170,205,255,.13)",
+   "css": ":root{--brand:#3E7CB1 !important;--brand-d:#1F3B57 !important;--cream:#EAF4FB !important;--cream2:#D8EAF7 !important;--bg:#EAF4FB !important;--line:#B9D6EC !important;--ink:#1F3B57 !important}",
+   "partikel": {
+    "emoji": [
+     "❄️",
+     "❄️",
+     "🧊"
+    ],
+    "jumlah": 14,
+    "durasi": 14
+   }
+  },
+  "panas": {
+   "tint": "rgba(255,200,80,.10)",
+   "css": "",
+   "partikel": {
+    "emoji": [
+     "✨",
+     "☀️",
+     "🌴"
+    ],
+    "jumlah": 8,
+    "durasi": 16,
+    "arah": "naik"
+   }
+  },
+  "hujan": {
+   "tint": "rgba(120,150,190,.12)",
+   "css": "",
+   "partikel": {
+    "emoji": [
+     "💧",
+     "☔"
+    ],
+    "jumlah": 14,
+    "durasi": 7
+   }
+  }
+ }
+}

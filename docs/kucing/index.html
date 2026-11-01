@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kucing Krish &amp; Oyen</title><body style="margin:0;min-height:100vh;background:#FFF1DB;font-family:system-ui;padding:1rem">
+<h3>Uji kucing &amp; tema</h3><p>Tambahkan <code>?musim=dingin</code> / <code>panas</code> / <code>hujan</code> / <code>normal</code>; <code>&amp;admin=1</code> untuk melihat Krish &amp; Oyen.</p>
+<script src="kucing.js"></script><script>
+var q=new URLSearchParams(location.search);
+__ujBoot(window,{mode:q.get('admin')?'admin':'user',sapa:'',nama:'',kabar:'',url:{krish:'krish.webp',oyen:'oyen.webp'},tema:'tema.json',musim:q.get('musim')||''});
+</script>
