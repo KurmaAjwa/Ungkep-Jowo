@@ -325,6 +325,11 @@ else:
 _toast = st.session_state.pop("_toast", None)
 if _toast:
     st.toast(_toast)
+if st.session_state.pop("_krish_senang", False):       # kode 2FA benar: Krish melonjak kegirangan
+    _sj = ("<script>(function(){var P=window.parent,K=P.__ujKucing;if(!K||!K.pom||!K.AK)return;"
+           "K.jalankan('senang',async function(my){var c=K.pom;c.say('Yeay! Akses penuh terbuka! 🎉',4200);c.hati(4);"
+           "await K.AK.menari(K.pom,my);await K.AK.menari(K.pom,my);});})();</script>")
+    (st.iframe(_sj, height=1) if hasattr(st, "iframe") else components.html(_sj, height=0))
 if (spec := st.session_state.pop("_open", None)):
     st.session_state.pop("_lihat_bukti", None)          # jendela baru selalu mulai dari rincian, bukan dari gambar bukti
 if spec and spec[0] == "siapa":

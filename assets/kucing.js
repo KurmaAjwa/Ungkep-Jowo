@@ -123,7 +123,7 @@ Cat.prototype.go = function (target, fps) {      // putar frame perantara dari p
 Cat.prototype.set = function (pose) { var c = this; c.snapXf(); c.seq = null; c.cyc = null; c.pose = pose; c.show(IDX[pose]); };
 Cat.prototype.loop = function (poses, fps) { var c = this; c.cyc = poses ? { f: poses.map(function (p) { return typeof p === 'number' ? p : IDX[p]; }), fps: fps || 6, t0: P.performance.now() } : null; };
 Cat.prototype.berhenti = function () {
-  var c = this; c.walkOn = false; c.cyc = null; c.run = false;
+  var c = this; c.walkOn = false; c.cyc = null; c.run = false; c.fly = null; c.sqT = 0;   // fly harus dibersihkan: bila tertinggal, frame macet di pose lompat selamanya
   if (c.seq) { var s = c.seq; c.seq = null; c.pose = s.tujuan; c.show(s.f[s.f.length - 1]); if (s.res) s.res(); }
   c.snapXf(); c.S.yawT = 0; c.S.rollT = 0; c.S.pitT = 0;
 };
@@ -560,6 +560,13 @@ setInterval(function () {                                           // penjaga: 
     var ada = D.querySelectorAll('.uj-cat'); if (ada.length > K.cats.length) [].forEach.call(ada, function (e) { if (!K.cats.some(function (c) { return c.el === e; })) e.remove(); });
     [].forEach.call(D.querySelectorAll('.uj-fx'), function (e) { if (!e.__t) e.__t = n; else if (n - e.__t > 5000) e.remove(); });
     K.cats.forEach(function (c) { if (c.aktif && !c.xf) { c.L[1 - c.front].style.opacity = 0; } });
+    K.cats.forEach(function (c) {                                     // penjaga keadaan macet: sisa lompat/jalan tanpa aksi yang berjalan
+      if (!c.aktif) return;
+      var nowP = P.performance.now();
+      if (c.fly && nowP - c.fly.t0 > c.fly.ms + 3000) c.fly = null;
+      if (!K.sibuk && (c.fly || c.walkOn || (c.seq && nowP - c.seq.t0 > 6000))) { c.berhenti(); c.pose = 'sit0'; c.show(IDX.sit0, true); }
+    });
+
   } catch (er) { }
 }, 4000);
 

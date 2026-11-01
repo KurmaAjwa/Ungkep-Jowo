@@ -730,4 +730,5 @@ def dialog_kunci2fa():
             st.error(err)
         else:
             st.session_state["_toast"] = "Akses penuh terbuka selama 30 menit 🔓"
+            st.session_state["_krish_senang"] = True
             st.rerun()

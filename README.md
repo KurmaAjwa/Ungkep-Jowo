@@ -105,3 +105,6 @@ Kucing bisa dimuat dari berkas statis (GitHub Pages) sehingga server Streamlit t
 - **Freeze panes**: baris bulan/tanggal dan kolom NAMA (serta TOTAL dan baris PENJUALAN) tetap terlihat saat tabel digulir.
 - **2FA admin bertingkat**: admin masuk cukup nama + sandi (mode terbatas: memesankan, menambah pesanan, konfirmasi revisi, membalas chat; halaman admin terkunci, konfirmasi lunas/Bungkus/Close order terkunci). Ketuk **Krish dua kali** → masukkan kode 6 angka → akses penuh 30 menit. Pasang: tab Sandi → Keamanan admin, lalu tempel `admin_totp_secret` di Secrets.
 - **Pembatas percobaan**: 6 kali salah sandi/kode dalam 10 menit mengunci nama itu 10 menit.
+
+## Perbaikan animasi kucing
+Kucing yang "berpindah tempat tanpa bergerak" disebabkan sisa status lompat (`fly`) yang tertinggal saat aksi dibatalkan. Kini dibersihkan saat aksi berhenti, dan penjaga berkala memulihkan keadaan macet. Setelah mengubah `assets/kucing.js`, jalankan `python bangun_statis.py` lalu unggah ulang folder `docs/kucing` ke GitHub.

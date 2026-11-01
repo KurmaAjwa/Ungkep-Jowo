@@ -140,7 +140,7 @@ def totp_baru() -> str:
         dasar = str(st.secrets["gcp_service_account"]["private_key"]) or str(st.secrets.get("admin_password", ""))
     except Exception:
         dasar = str(secret("admin_password", "")) or "lokal"
-    h = hmac.new(dasar.encode(), b"ungkep-jowo-admin-totp", hashlib.sha256).digest()[:20]
+    h = hmac.new(dasar.encode(), ("ungkep-jowo-admin-totp" + str(secret("admin_totp_salt", ""))).encode(), hashlib.sha256).digest()[:20]
     return base64.b32encode(h).decode().rstrip("=")
 
 
