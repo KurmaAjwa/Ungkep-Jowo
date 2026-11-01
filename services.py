@@ -134,7 +134,14 @@ def _terkunci(nama: str) -> int:
 
 
 def totp_baru() -> str:
-    return base64.b32encode(_sec.token_bytes(20)).decode().rstrip("=")
+    """Kunci pendaftaran yang STABIL (tidak berubah saat halaman dimuat ulang atau aplikasi di-reboot): diturunkan dari rahasia
+    server (kunci Google). Dengan begitu kunci yang sudah dimasukkan ke aplikasi authenticator tetap cocok."""
+    try:
+        dasar = str(st.secrets["gcp_service_account"]["private_key"]) or str(st.secrets.get("admin_password", ""))
+    except Exception:
+        dasar = str(secret("admin_password", "")) or "lokal"
+    h = hmac.new(dasar.encode(), b"ungkep-jowo-admin-totp", hashlib.sha256).digest()[:20]
+    return base64.b32encode(h).decode().rstrip("=")
 
 
 def totp_kode(rahasia: str, t: float | None = None) -> str:

@@ -392,14 +392,17 @@ with tab_sandi:
             st.markdown("1. Di HP, buka **Google Authenticator / Authy / Microsoft Authenticator** → tambah akun → **masukkan kunci setelan**.")
             st.code(_rh, language=None)
             st.markdown("2. Uji dulu kodenya:")
-            _kd = st.text_input("Kode 6 angka dari aplikasi", max_chars=8, key="totp_uji")
-            if _kd:
+            with st.form("form_uji_totp"):
+                _kd = st.text_input("Kode 6 angka dari aplikasi", max_chars=8, placeholder="123456")
+                _uji = st.form_submit_button("Periksa kode", type="primary", width="stretch")
+            if _uji:
                 if services.totp_cek(_rh, _kd):
-                    st.success("Kode cocok. Terakhir, tempel baris ini di **Secrets** Streamlit (di bagian paling atas), simpan, lalu reboot aplikasi:")
+                    st.success("✅ Kode cocok! Terakhir, tempel baris ini di **Secrets** Streamlit (paling atas), simpan, lalu reboot aplikasi:")
                     st.code(f'admin_totp_secret = "{_rh}"', language="toml")
                     st.warning("Simpan juga kunci di atas di tempat aman sebagai cadangan bila HP hilang.")
                 else:
-                    st.error("Kode belum cocok. Periksa kunci yang dimasukkan dan jam HP.")
+                    st.error("Kode belum cocok. Pastikan: jenis kunci **berbasis waktu**, kunci diketik persis tanpa spasi, "
+                             "dan jam HP otomatis (aktifkan waktu otomatis).")
 
 
 # ---------------------------------------------------------------- pelanggan
