@@ -175,3 +175,15 @@ table.rev tr.ubah td{background:#FDE68A;font-weight:800}
 .pill-tambah{display:inline-block;min-width:1.5rem;border:2px dashed #E0A15A;color:#B9601A;font-weight:900;border-radius:999px;padding:0 .35rem;line-height:1.3;}
 
 .rekap .bel{display:block;font-size:.62rem;line-height:1;margin-bottom:1px}
+
+/* beku (freeze panes): baris judul (bulan + tanggal) dan kolom NAMA tetap terlihat saat tabel digulir */
+.rekap-wrap{overflow:auto;max-height:72vh;overscroll-behavior:contain;}
+table.rekap thead th{position:sticky;z-index:4;height:1.9rem;box-sizing:border-box;}
+table.rekap thead tr:nth-child(1) th{top:0;}
+table.rekap thead tr:nth-child(2) th{top:1.9rem;}
+table.rekap thead th.nama,table.rekap thead th.tot{top:0;}
+table.rekap thead th.nama{left:0;z-index:6;}
+table.rekap thead th.tot{right:0;z-index:6;}
+table.rekap tr.jual td{position:sticky;bottom:0;z-index:3;}
+table.rekap tr.jual td.nama{left:0;z-index:5;}
+table.rekap tr.jual td.tot{right:0;z-index:5;}

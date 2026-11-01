@@ -225,6 +225,9 @@ def kartu_live():
 
 if me and not admin:
     kartu_live()
+if admin and services._rahasia_2fa():
+    st.caption(f"🔓 Akses penuh terbuka · sisa {services.sisa_penuh() // 60} menit" if services.is_penuh()
+               else "🔒 Mode terbatas: boleh memesankan, menambah pesanan, konfirmasi revisi, dan membalas chat. Ketuk Krish dua kali untuk akses penuh.")
 
 cari = st.text_input("Cari nama", placeholder="Cari nama di tabel…", label_visibility="collapsed") if len(nama_semua) > 12 else ""
 
@@ -241,6 +244,8 @@ if klik:
         pass
     if jenis == "k":      # ketuk kucing: buka obrolan
         st.session_state["_open"] = ("kucing",)
+    if jenis == "k2":     # ketuk dua kali: admin membuka kunci 2FA (selain itu sama seperti ketuk biasa)
+        st.session_state["_open"] = ("kunci2fa",) if (admin and services._rahasia_2fa() and not services.is_penuh()) else ("kucing",)
     if jenis == "s" and admin and _tg_ok:      # baris penjualan: rincian per pelanggan
         st.session_state["_open"] = ("penjualan", a1)
     if jenis == "r":      # baris rekap pesanan: siapa saja yang memesan
@@ -285,12 +290,12 @@ def tabel_live():
 
 
 tabel_live()
-_INJ = "(function(){\n var last=0;\n document.addEventListener('click',function(e){var td=e.target.closest&&e.target.closest('[data-c]');if(!td)return;\n  var b=document.querySelector('[class*=st-key-cellsel] input');if(!b)return;\n  var st=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;b.focus({preventScroll:true});\n  st.call(b,td.getAttribute('data-c')+'#'+Date.now());b.dispatchEvent(new Event('input',{bubbles:true}));b.blur();},true);\n document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('rekap-wrap')){last=t.scrollLeft;window.__ujLast=last;}},true);\n new MutationObserver(function(){var w=document.querySelector('.rekap-wrap');if(w&&!w.__uj){w.__uj=1;if(last>0)w.scrollLeft=last;}}).observe(document.body,{childList:true,subtree:true});\n})();"
+_INJ = "(function(){\n var last=0;\n var kt=null;function kirim(c){var b=document.querySelector('[class*=st-key-cellsel] input');if(!b)return;\n  var st=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;b.focus({preventScroll:true});\n  st.call(b,c+'#'+Date.now());b.dispatchEvent(new Event('input',{bubbles:true}));b.blur();}\n var px=0,py=0;document.addEventListener('click',function(e){\n  if(kt&&Math.hypot(e.clientX-px,e.clientY-py)<140){clearTimeout(kt);kt=null;kirim('k2|x');return;}\n  var td=e.target.closest&&e.target.closest('[data-c]');if(!td)return;var c=td.getAttribute('data-c');\n  if(c.indexOf('k|')===0){px=e.clientX;py=e.clientY;kt=setTimeout(function(){kt=null;kirim(c);},420);return;}\n  kirim(c);},true);\n document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('rekap-wrap')){last=t.scrollLeft;window.__ujLast=last;}},true);\n new MutationObserver(function(){var w=document.querySelector('.rekap-wrap');if(w&&!w.__uj){w.__uj=1;if(last>0)w.scrollLeft=last;}}).observe(document.body,{childList:true,subtree:true});\n})();"
 _js = ("""<script>
 (function(){
  var P=window.parent,D=P.document;
- if(!P.__ujKlik2){
-  var s=D.createElement('script'); s.textContent=%INJ%; D.head.appendChild(s); P.__ujKlik2=true;
+ if(!P.__ujKlik4){
+  var s=D.createElement('script'); s.textContent=%INJ%; D.head.appendChild(s); P.__ujKlik4=true;
  }
  var n=0,t=setInterval(function(){try{var w=D.querySelector('.rekap-wrap'),h=D.querySelector('th.hari-ini');
  if(w&&h){if(!(P.__ujLast>0))w.scrollLeft=Math.max(0,h.offsetLeft-215);clearInterval(t);}}catch(e){clearInterval(t);} if(++n>20)clearInterval(t);},150);
@@ -324,6 +329,8 @@ if (spec := st.session_state.pop("_open", None)):
     st.session_state.pop("_lihat_bukti", None)          # jendela baru selalu mulai dari rincian, bukan dari gambar bukti
 if spec and spec[0] == "siapa":
     ui.dialog_siapa(spec[1], spec[2], admin=admin)
+elif spec and spec[0] == "kunci2fa" and admin:
+    ui.dialog_kunci2fa()
 elif spec and spec[0] == "penjualan" and admin:
     ui.dialog_penjualan(spec[1])
 elif spec and spec[0] == "kucing":

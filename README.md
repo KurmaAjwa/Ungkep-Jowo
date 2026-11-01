@@ -100,3 +100,8 @@ Kucing bisa dimuat dari berkas statis (GitHub Pages) sehingga server Streamlit t
 - **Baris PENJUALAN** (khusus admin) di bawah tabel kasbon: total uang per hari; ketuk angkanya untuk jendela Nama | Nasi | Lauk | Minuman | Kerupuk/lain-lain | Total. Kolom TOTAL ke bawah tetap ada.
 - **Impor Excel kini menggabung**: yang ada di berkas menimpa, yang hanya ada di aplikasi tetap dipertahankan, tanggal lain tidak tersentuh, tidak ada dobel. Bila berkas lebih sedikit dari data yang ada muncul peringatan beserta daftar baru / berubah / dipertahankan. "Mode ganti penuh" tersedia untuk kasus jarang.
 - **Menu dari Excel**: lembar "Makanan" (Jenis | Nama | Harga | Untuk lauk; baris Jenis "Gratis" = pendamping seperti Free Sup) dan lembar "Minuman" (Nama | Harga | Jumbo | + Susu | Rasa). Satu berkas bersama lembar "Pesanan": sekali unggah memperbarui harga, menu, dan pesanan. "(FREE BIHUN)" di nama pesanan dipakai langsung.
+
+## Keamanan & tampilan tabel
+- **Freeze panes**: baris bulan/tanggal dan kolom NAMA (serta TOTAL dan baris PENJUALAN) tetap terlihat saat tabel digulir.
+- **2FA admin bertingkat**: admin masuk cukup nama + sandi (mode terbatas: memesankan, menambah pesanan, konfirmasi revisi, membalas chat; halaman admin terkunci, konfirmasi lunas/Bungkus/Close order terkunci). Ketuk **Krish dua kali** → masukkan kode 6 angka → akses penuh 30 menit. Pasang: tab Sandi → Keamanan admin, lalu tempel `admin_totp_secret` di Secrets.
+- **Pembatas percobaan**: 6 kali salah sandi/kode dalam 10 menit mengunci nama itu 10 menit.

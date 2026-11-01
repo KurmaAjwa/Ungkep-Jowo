@@ -53,8 +53,8 @@ def dialog_bukti(pid: str):
 
 @st.dialog("Konfirmasi pelunasan", width="large")
 def dialog_konfirmasi(pid: str):
-    if not services.is_admin():
-        st.error("Khusus admin.")
+    if not services.is_penuh():
+        st.error("Terkunci. Buka dengan 2FA: ketuk Krish dua kali di Beranda.")
         return
     store = services.get_store()
     b = payments.cari(store, pid)
@@ -156,6 +156,9 @@ def _ringkas(total_pilih: float, dibayar: float | None) -> None:
 
 def blok_harian(store, tgl: date, nama: str, kunci_muat) -> None:
     """Admin, jendela rincian satu tanggal: lihat bukti, centang item yang lunas (boleh sebagian), simpan, batalkan."""
+    if not services.is_penuh():
+        st.caption("🔒 Terkunci. Buka dengan 2FA: ketuk Krish dua kali di Beranda.")
+        return
     kode = logic.kode_periode(logic.periode_untuk(tgl)[0])
     iso = tgl.isoformat()
     its = [i for i in payments.rincian_periode(store, nama, kode) if i["tanggal"] == iso]
@@ -217,6 +220,9 @@ def pd_sum(df, kolom: str) -> float:
 
 def blok_total(store, kode: str, nama: str, kunci_muat) -> None:
     """Admin, jendela total periode: semua pesanan periode (per tanggal) bisa dicentang lunas satu per satu + tombol bukti per foto."""
+    if not services.is_penuh():
+        st.caption("🔒 Terkunci. Buka dengan 2FA: ketuk Krish dua kali di Beranda.")
+        return
     orders_ = payments.pesanan_periode(store, nama, kode)
     if not orders_:
         return

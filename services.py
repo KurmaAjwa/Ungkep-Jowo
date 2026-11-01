@@ -66,8 +66,43 @@ def is_admin() -> bool:
     return st.session_state.get("role") == "admin"
 
 
+MASA_PENUH = 1800    # detik: setelah kode 2FA benar, akses penuh terbuka 30 menit lalu terkunci sendiri
+
+
+def is_penuh() -> bool:
+    """Admin dengan akses penuh. Tanpa 2FA terpasang = penuh (supaya bisa memasang 2FA pertama kali).
+    Admin yang sudah masuk tetapi belum membuka kunci hanya boleh: memesankan, menambah pesanan, mengonfirmasi revisi, membalas chat."""
+    if not is_admin():
+        return False
+    if not _rahasia_2fa():
+        return True
+    return st.session_state.get("_penuh_sampai", 0) > _time.time()
+
+
+def sisa_penuh() -> int:
+    return max(0, int(st.session_state.get("_penuh_sampai", 0) - _time.time()))
+
+
+def buka_penuh(kode: str) -> str | None:
+    if not is_admin():
+        return "Khusus admin."
+    nama = user() or "?"
+    if (sisa := _terkunci("2fa:" + nama)):
+        return f"Terlalu banyak percobaan salah. Coba lagi {sisa // 60 + 1} menit lagi."
+    if not totp_cek(_rahasia_2fa(), kode):
+        _GAGAL.setdefault("2fa:" + nama, []).append(_time.time())
+        return "Kode salah. Lihat kode 6 angka terbaru di aplikasi authenticator."
+    _GAGAL.pop("2fa:" + nama, None)
+    st.session_state["_penuh_sampai"] = _time.time() + MASA_PENUH
+    return None
+
+
+def kunci_lagi() -> None:
+    st.session_state.pop("_penuh_sampai", None)
+
+
 def keluar() -> None:
-    for k in ("user", "role", "_disapa", "_chat"):
+    for k in ("user", "role", "_disapa", "_chat", "_penuh_sampai"):
         st.session_state.pop(k, None)
 
 
@@ -78,14 +113,59 @@ def daftar_nama(store) -> list[str]:
     return sorted(df["nama"].tolist(), key=str.lower)
 
 
+import base64
+import hashlib
+import hmac
+import secrets as _sec
+import struct
+import time as _time
+
+_GAGAL: dict[str, list[float]] = {}      # percobaan masuk yang gagal per nama (di memori server)
+_MAKS_GAGAL, _JENDELA = 6, 600           # 6 kali salah dalam 10 menit -> kunci 10 menit
+
+
+def _terkunci(nama: str) -> int:
+    """Sisa detik terkunci (0 = boleh mencoba)."""
+    t = _time.time()
+    _GAGAL[nama] = [x for x in _GAGAL.get(nama, []) if t - x < _JENDELA]
+    if len(_GAGAL[nama]) >= _MAKS_GAGAL:
+        return int(_JENDELA - (t - _GAGAL[nama][0]))
+    return 0
+
+
+def totp_baru() -> str:
+    return base64.b32encode(_sec.token_bytes(20)).decode().rstrip("=")
+
+
+def totp_kode(rahasia: str, t: float | None = None) -> str:
+    kunci = base64.b32decode(rahasia.upper() + "=" * (-len(rahasia) % 8))
+    h = hmac.new(kunci, struct.pack(">Q", int((t or _time.time()) // 30)), hashlib.sha1).digest()
+    o = h[-1] & 15
+    return f"{(struct.unpack('>I', h[o:o + 4])[0] & 0x7FFFFFFF) % 1000000:06d}"
+
+
+def totp_cek(rahasia: str, kode: str) -> bool:
+    kode = "".join(ch for ch in str(kode) if ch.isdigit())
+    t = _time.time()
+    return len(kode) == 6 and any(hmac.compare_digest(totp_kode(rahasia, t + d * 30), kode) for d in (-1, 0, 1))
+
+
+def _rahasia_2fa() -> str:
+    return str(secret("admin_totp_secret", "") or "").strip()
+
+
 def masuk(store, nama: str, sandi: str) -> str | None:
-    """Kembalikan None bila sukses, atau pesan galat."""
+    """Kembalikan None bila sukses, "2FA" bila admin perlu kode, atau pesan galat."""
+    if (sisa := _terkunci(nama)):
+        return f"Terlalu banyak percobaan salah. Coba lagi {sisa // 60 + 1} menit lagi."
     df = store.all("Pelanggan")
     row = df[df["nama"] == nama]
     if row.empty or row.iloc[0]["aktif"] == "0":
         return "Nama tidak ditemukan."
     if not logic.cek_sandi(sandi, row.iloc[0]["sandi_hash"]):
+        _GAGAL.setdefault(nama, []).append(_time.time())
         return "Sandi salah. Lupa sandi? Tekan 'Tanya admin'."
+    _GAGAL.pop(nama, None)
     st.session_state["user"] = nama
     st.session_state["role"] = row.iloc[0]["role"]
     return None

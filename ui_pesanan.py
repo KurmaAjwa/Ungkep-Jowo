@@ -141,13 +141,19 @@ def dialog_pesan(tgl_iso: str, nama: str, langsung: bool = False):
         else:
             label = ("Simpan perubahan" if langsung else "Kirim revisi") if ada else "Pesan sekarang"
             if st.button(label, type="primary", width="stretch", disabled=total <= 0):
+                err = None
+                if langsung and ada and not services.is_penuh() and any(pilihan.get(n, 0) < i["qty"] for n, i in lama.items()
+                                                                       if n.lower() not in _gr):
+                    st.error("Mode terbatas: admin hanya boleh menambah pesanan. Untuk mengurangi atau membatalkan, "
+                             "buka kunci 2FA (ketuk Krish dua kali di Beranda).")
+                    st.stop()
                 err, kind = orders.simpan_pesanan(store, tgl, nama, pilihan, catatan.strip(), langsung=langsung, oleh=pengguna)
                 if err:
                     st.error(err)
                 else:
                     st.session_state["_sukses"] = {"kind": kind, "tgl": tgl_iso, "total": total}
                     st.rerun()
-            if ada and st.button("Batalkan pesanan", width="stretch"):
+            if ada and (not langsung or services.is_penuh()) and st.button("Batalkan pesanan", width="stretch"):
                 st.session_state["_konfirm_batal"] = True
                 st.rerun(scope="fragment")
 
@@ -173,6 +179,12 @@ def _blok_bayar(store, tgl: date, nama: str, admin: bool) -> None:
     import payments
     kode = logic.kode_periode(logic.periode_untuk(tgl)[0])
     iso = tgl.isoformat()
+    if admin and not services.is_penuh():
+        t = payments.tagihan(store, nama, kode, iso)
+        st.markdown(f'<div class="bayar-stat {"ok" if t["lunas"] else "belum"}"><small>Pembayaran</small><b>{"✓ LUNAS" if t["lunas"] else "BELUM LUNAS"}</b></div>',
+                    unsafe_allow_html=True)
+        st.caption("🔒 Konfirmasi pembayaran terkunci. Buka dengan 2FA: ketuk Krish dua kali di Beranda.")
+        return
     if admin:    # admin: lihat bukti, centang item yang lunas, simpan / batalkan (tanpa muat ulang halaman sampai disimpan)
         import ui_bayar
         ui_bayar.blok_harian(store, tgl, nama, lambda: _muat_ulang(iso, nama))
@@ -224,7 +236,7 @@ def _blok_bayar(store, tgl: date, nama: str, admin: bool) -> None:
             if c[1].button("Kirim bukti lagi", key=f"by2_{iso}_{nama}", width="stretch"):
                 st.session_state["_open"] = ("bayar", kode, nama, iso, None)
                 st.rerun()
-    if admin:
+    if admin and services.is_penuh():
         for p in cek.itertuples():
             st.warning(f"Bukti transfer {logic.rupiah(float(p.jumlah))} dari pelanggan, tagihan {logic.rupiah(float(p.tagihan))}.")
             _bukti_img(p.bukti)
@@ -323,7 +335,9 @@ def dialog_tagihan(kode: str, nama: str, admin: bool = False):
         st.markdown(f'<div class="kartu"><small>Belum dibayar</small><div class="besar">{logic.rupiah(t["sisa"])}</div>'
                     f'<small>Jatuh tempo {logic.CUTOFF_HARI} {logic.BULAN[b.month]} {b.year} · status: {stat}</small></div>', unsafe_allow_html=True)
     cek = payments.menunggu_cek(store, nama, kode)
-    if admin:
+    if admin and not services.is_penuh():
+        st.caption("🔒 Konfirmasi pembayaran terkunci. Buka dengan 2FA: ketuk Krish dua kali di Beranda.")
+    elif admin:
         import ui_bayar
 
         def _buka_lagi():
@@ -537,7 +551,7 @@ def _kontrol_tutup(store, tgl: date, admin: bool) -> None:
     tutup = orders.is_tutup(store, tgl)
     if tutup:
         st.html('<div class="kosong-info">🔒 Order ditutup. Pelanggan tidak bisa memesan atau mengubah pesanan.</div>')
-    if admin:
+    if admin and services.is_penuh():
         if tutup:
             if st.button("Buka kembali order", key="buka_order", width="stretch"):
                 orders.set_tutup(store, tgl, False)
@@ -599,7 +613,7 @@ def dialog_siapa(tgl_iso: str, kunci: str, admin: bool = False):
         c = st.columns([3, 1.4] if admin else [3, 1.4], vertical_alignment="center", gap="small")
         extra = " · ⏳ revisi" if o["revisi"] else ""
         c[0].markdown(f'**{no}. {_esc(o["nama"])}** ×{q}{extra}' + ("  ✓" if bungkus else ""))
-        if admin:
+        if admin and services.is_penuh():
             if c[1].button("✓ Dibungkus" if bungkus else "Bungkus", key=f"sq_{kunci}_{no}", width="stretch",
                            type="secondary" if bungkus else "primary"):
                 orders.set_dibungkus(store, tgl, o["nama"], not bungkus)
@@ -607,7 +621,7 @@ def dialog_siapa(tgl_iso: str, kunci: str, admin: bool = False):
                 st.rerun()
         else:
             c[1].caption("dibungkus" if bungkus else "")
-    if admin and belum:
+    if admin and services.is_penuh() and belum:
         if st.button(f"Bungkus semua ({len(belum)})", key=f"sq_all_{kunci}", width="stretch"):
             for o in belum:
                 orders.set_dibungkus(store, tgl, o["nama"], True)
@@ -689,3 +703,31 @@ def dialog_penjualan(tgl_iso: str):
              + "".join(f'<td><b>{jml[k]} porsi</b></td>' for k in kolom)
              + f'<td class="tot" style="position:static"><b>{logic.rupiah(total)}</b></td></tr></tbody></table></div>')
     st.html("".join(h))
+
+
+@st.dialog("Kode 2FA")
+def dialog_kunci2fa():
+    """Krish berdiri dan meminta kode; kode benar membuka akses penuh admin selama 30 menit."""
+    import streamlit.components.v1 as components
+    if not services.is_admin():
+        st.error("Khusus admin.")
+        return
+    js = ("<script>(function(){var K=window.parent.__ujKucing;if(!K||!K.pom||!K.AK)return;"
+          "K.jalankan('kunci',async function(my){await K.AK.berdiri(K.pom,my);K.pom.say('Masukkan kode 2FA ya 🔐',30000);});})();</script>")
+    (st.iframe(js, height=1) if hasattr(st, "iframe") else components.html(js, height=0))
+    if services.is_penuh():
+        st.success(f"Akses penuh terbuka, sisa {services.sisa_penuh() // 60} menit.")
+        if st.button("Kunci lagi", width="stretch"):
+            services.kunci_lagi()
+            st.rerun()
+        return
+    st.markdown("🐱 **Masukkan kode 2FA** dari aplikasi authenticator di HP.")
+    with st.form("form_kunci2fa", clear_on_submit=True):
+        kode = st.text_input("Kode 6 angka", max_chars=8, placeholder="123456")
+        ok = st.form_submit_button("Buka kunci", type="primary", width="stretch")
+    if ok:
+        if (err := services.buka_penuh(kode)):
+            st.error(err)
+        else:
+            st.session_state["_toast"] = "Akses penuh terbuka selama 30 menit 🔓"
+            st.rerun()
