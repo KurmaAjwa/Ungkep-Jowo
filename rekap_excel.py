@@ -235,12 +235,20 @@ def _lama_per_pelanggan(store, tgl: date) -> dict[str, dict[str, dict]]:
     return out
 
 
-def gabung(lama: dict[str, dict], baru: dict[str, dict]) -> dict[str, dict]:
+def _gratis(nama: str, it: dict, gr: set[str]) -> bool:
+    return float(it.get("harga", 0) or 0) == 0 and (nama.lower() in gr or nama.lower().startswith("free "))
+
+
+def gabung(lama: dict[str, dict], baru: dict[str, dict], gr: set[str] | None = None) -> dict[str, dict]:
     """Gabungkan satu pelanggan: item di berkas menimpa yang lama (jumlah diambil yang terbesar supaya tidak berkurang
-    karena berkas separuh); item yang hanya ada di data lama tetap dipertahankan."""
-    out = {k: dict(v) for k, v in lama.items()}
+    karena berkas separuh); item yang hanya ada di data lama tetap dipertahankan.
+    Pendamping gratis (Free Sup dst.) berbeda: bila berkas membawa pendamping, DIA yang berlaku dan yang lama dibuang,
+    supaya pergeseran hari di berkas tidak membuat pendamping dobel."""
+    gr = gr or set()
+    free_baru = {k for k, v in baru.items() if _gratis(k, v, gr)}
+    out = {k: dict(v) for k, v in lama.items() if not (free_baru and _gratis(k, v, gr))}
     for k, v in baru.items():
-        if k in out:
+        if k in out and not _gratis(k, v, gr):
             out[k].update({"qty": max(out[k]["qty"], v["qty"]), "harga": v["harga"], "hpp": v["hpp"]})   # harga mengikuti berkas
         else:
             out[k] = dict(v)
@@ -252,6 +260,7 @@ def bandingkan(store, rc: dict) -> list[dict]:
     out = []
     for tgl, psn in rc["tanggal"].items():
         lama = _lama_per_pelanggan(store, tgl)
+        gr = orders.nama_gratis(store)
         baru_p, ubah, tetap, sama = [], [], [], 0
         n_lama = sum(len(v) for v in lama.values())
         n_file = sum(len(v) for v in psn.values())
@@ -259,14 +268,14 @@ def bandingkan(store, rc: dict) -> list[dict]:
             if nama not in lama:
                 baru_p.append(nama)
                 continue
-            g = gabung(lama[nama], its)
+            g = gabung(lama[nama], its, gr)
             tambah = [k for k in its if k not in lama[nama]]
             naik = [k for k in its if k in lama[nama] and its[k]["qty"] > lama[nama][k]["qty"]]
             if tambah or naik:
                 ubah.append((nama, ", ".join([f"+{k}" for k in tambah] + [f"{k} {lama[nama][k]['qty']}→{its[k]['qty']}" for k in naik])))
             else:
                 sama += 1
-            sisa = [k for k in lama[nama] if k not in its]
+            sisa = [k for k in lama[nama] if k not in its and k in g]
             if sisa:
                 tetap.append((nama, ", ".join(sisa)))
         for nama in lama:
@@ -296,6 +305,7 @@ def impor(store, rc: dict, buat_akun: bool, sandi_awal: str, oleh: str = "Impor 
     for tgl, psn in rc["tanggal"].items():
         lama_df = orders.pesanan_tgl(store, tgl)
         lama = _lama_per_pelanggan(store, tgl)
+        gr_ = orders.nama_gratis(store)
         lunas_item = {(r.pelanggan, r.item, int(orders._num(r.qty))) for r in lama_df.itertuples() if r.status_bayar == "Lunas"}
         rows = []
         if not ganti_penuh:      # pelanggan yang tidak ada di berkas: baris lama dibiarkan apa adanya
@@ -305,7 +315,7 @@ def impor(store, rc: dict, buat_akun: bool, sandi_awal: str, oleh: str = "Impor 
             if not buat_akun and nama.upper() not in akun_ada:
                 dilewati += 1
                 continue
-            hasil = dict(its) if ganti_penuh or nama not in lama else gabung(lama[nama], its)
+            hasil = dict(its) if ganti_penuh or nama not in lama else gabung(lama[nama], its, gr_)
             items = list(hasil.values())
             if nama in lama and (ganti_penuh or any(hasil[k]["qty"] != lama[nama].get(k, {}).get("qty") for k in hasil) or len(hasil) != len(lama[nama])):
                 diubah.add(nama)

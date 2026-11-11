@@ -108,3 +108,8 @@ Kucing bisa dimuat dari berkas statis (GitHub Pages) sehingga server Streamlit t
 
 ## Perbaikan animasi kucing
 Kucing yang "berpindah tempat tanpa bergerak" disebabkan sisa status lompat (`fly`) yang tertinggal saat aksi dibatalkan. Kini dibersihkan saat aksi berhenti, dan penjaga berkala memulihkan keadaan macet. Setelah mengubah `assets/kucing.js`, jalankan `python bangun_statis.py` lalu unggah ulang folder `docs/kucing` ke GitHub.
+
+## Input pesanan admin, gambar tagihan, pendamping gratis
+- **Tombol ➕ Input pesanan** (Beranda, hanya admin dengan akses penuh/2FA): jendela tabel (Perbesar/Perkecil) berisi Nama (ketik; nama baru → centang untuk mendaftarkan), Nasi (putih Rp3.000 default / kuning Rp5.000, pilih salah satu), lauk, kerupuk, minuman, Porsi, Harga, Jumlah, Simpan. Item ditambahkan ke pesanan yang sudah ada; pendamping gratis lauk otomatis. Tambahkan baris `Nasi | Nasi Kuning | 5000` di lembar Makanan.
+- **🧾 Gambar tagihan** (Beranda, admin): PNG Nama | Tanggal | Total untuk pesanan belum lunas dan terkonfirmasi pada periode yang dipilih.
+- **Pendamping gratis tidak dobel** saat impor Excel: bila berkas membawa pendamping, itu yang berlaku dan pendamping lama dibuang.

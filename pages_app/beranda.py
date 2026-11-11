@@ -13,6 +13,7 @@ import logic
 import orders
 import payments
 import services
+import ui_input
 import ui_pesanan as ui
 
 store = services.get_store()
@@ -225,6 +226,15 @@ def kartu_live():
 
 if me and not admin:
     kartu_live()
+if admin:       # alat admin: input pesanan (khusus akses penuh) dan gambar tagihan
+    _b1, _b2 = st.columns(2)
+    if services.is_penuh():
+        if _b1.button("➕ Input pesanan", width="stretch", key="btn_input"):
+            st.session_state["_open"] = ("input", False)
+            st.rerun()
+    import tagihan_img
+    _b2.download_button("🧾 Gambar tagihan", data=lambda: tagihan_img.buat_gambar(store, kode, logic.label_periode(start, end)),
+                        file_name=f"tagihan_{kode}.png", mime="image/png", on_click="ignore", width="stretch", key="btn_tagihan")
 if admin and services._rahasia_2fa():
     st.caption(f"🔓 Akses penuh terbuka · sisa {services.sisa_penuh() // 60} menit" if services.is_penuh()
                else "🔒 Mode terbatas: boleh memesankan, menambah pesanan, konfirmasi revisi, dan membalas chat. Ketuk Krish dua kali untuk akses penuh.")
@@ -334,6 +344,8 @@ if (spec := st.session_state.pop("_open", None)):
     st.session_state.pop("_lihat_bukti", None)          # jendela baru selalu mulai dari rincian, bukan dari gambar bukti
 if spec and spec[0] == "siapa":
     ui.dialog_siapa(spec[1], spec[2], admin=admin)
+elif spec and spec[0] == "input" and admin:
+    (ui_input.dialog_input_besar if spec[1] else ui_input.dialog_input)()
 elif spec and spec[0] == "kunci2fa" and admin:
     ui.dialog_kunci2fa()
 elif spec and spec[0] == "penjualan" and admin:

@@ -138,6 +138,7 @@ def templat() -> bytes:
 
 BARIS_MENU = [
     ["Nasi", "Nasi", 3000, "", "", ""],
+    ["Nasi", "Nasi Kuning", 5000, "", "", ""],
     ["Lauk", "Ayam Geprek", 7000, "", "", ""],
     ["Lauk", "Ayam Kecap", 7000, "", "", ""],
     ["Lauk", "Ayam Rujak & Sayur Asem", 7000, "", "", ""],
