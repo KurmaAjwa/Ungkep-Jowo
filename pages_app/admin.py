@@ -32,8 +32,8 @@ import kucing as _kucing
 st.session_state["_kucing_ada"] = True
 st.session_state["_oyen_ada"] = True
 
-KAT_MASTER = ["Nasi", "Lauk", "Lain-lain"]                 # menu master: makanan saja
-KAT_MAKANAN = ["Nasi", "Ayam Sayur", "Lauk", "Lain-lain"]  # urutan tampil (Ayam Sayur = data lama)
+KAT_MASTER = ["Nasi", "Lauk", "Lain-lain", "Pendamping"]                 # menu master: makanan saja
+KAT_MAKANAN = ["Nasi", "Ayam Sayur", "Lauk", "Lain-lain", "Pendamping"]  # urutan tampil (Ayam Sayur = data lama)
 
 import tanya as _tanya
 _n_tanya = len(_tanya.menunggu(services.get_store()))
@@ -66,7 +66,7 @@ with tab_master:
     if not _penuh:
         st.info("🔒 Bagian ini terkunci. Buka dengan 2FA: ketuk **Krish dua kali** di Beranda, masukkan kode 6 angka, lalu kembali ke sini.")
     else:
-        st.caption("Makanan saja: nasi, lauk, dan lain-lain (kerupuk). Harga bawaan bisa kamu ubah lagi tiap hari di tab Menu harian. "
+        st.caption("Makanan saja: nasi, lauk, lain-lain (kerupuk), dan Pendamping (capjay, tumis sawi, dst; otomatis berharga Free). Harga bawaan bisa kamu ubah lagi tiap hari di tab Menu harian. "
                    "Minuman diatur di tab Minuman.")
         master = store.all("Menu")
         master = master[master["kategori"] != "Minuman"] if not master.empty else master
@@ -139,13 +139,19 @@ with tab_harian:
                 sub = master[master["kategori"] == kat]
                 if sub.empty:
                     continue
-                st.markdown(f"**{kat.upper()}**")
+                st.markdown("**LAUK PENDAMPING (FREE)**" if kat == "Pendamping" else f"**{kat.upper()}**")
                 for m in sub.itertuples():
                     t = terpilih.get(m.nama)
                     k = f"{tgl.isoformat()}_{m.id}"
                     with st.container(border=True):
                         pakai = st.toggle(m.nama, value=t is not None, key=f"hp_{k}")
                         if not pakai:
+                            continue
+                        if kat == "Pendamping":
+                            st.caption("Harga: Free (gratis untuk pelanggan)")
+                            pilihan_harian.append({"tanggal": tgl.isoformat(), "menu_id": m.id, "kategori": "Pendamping", "nama": m.nama,
+                                                   "harga": 0, "hpp": int(_angka(t.hpp) if t else _angka(m.hpp)),
+                                                   "batas_stok": 0, "stok": "", "alternatif": ""})
                             continue
                         harga = st.number_input("Harga hari ini (Rp)", min_value=0, step=500, key=f"hh_{k}",
                                                 value=int(_angka(t.harga) if t else _angka(m.harga)))
@@ -192,7 +198,7 @@ with tab_harian:
                     st.warning("Ada perubahan yang **belum diunggah**. Pelanggan masih melihat menu lama sampai kamu menekan **Unggah menu**. "
                                "Menu master hanya daftar pilihan, bukan menu yang tampil di jendela pesanan.")
             st.info("Menu yang saat ini dilihat pelanggan pada " + tgl.strftime('%d/%m/%Y') + ": " + (
-                ", ".join(f"{r.nama} ({logic.rupiah(_angka(r.harga))})" for r in _ada.itertuples() if r.kategori != "Minuman") or "belum ada menu diunggah"))
+                ", ".join(f"{r.nama} ({'Free' if r.kategori == 'Pendamping' else logic.rupiah(_angka(r.harga))})" for r in _ada.itertuples() if r.kategori != "Minuman") or "belum ada menu diunggah"))
             if st.button("Unggah menu", type="primary", width="stretch"):
                 if not pilihan_harian:
                     st.error("Pilih minimal satu menu.")

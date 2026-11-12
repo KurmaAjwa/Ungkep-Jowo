@@ -6,7 +6,7 @@ import io
 
 import openpyxl
 
-KAT_MAKANAN = ["Nasi", "Ayam Sayur", "Lauk", "Lain-lain"]
+KAT_MAKANAN = ["Nasi", "Ayam Sayur", "Lauk", "Lain-lain", "Pendamping"]
 
 
 def _t(x) -> str:
@@ -73,6 +73,8 @@ def baca(data: bytes) -> dict:
             else:
                 kat = next((k for k in KAT_MAKANAN if k.lower() == j), None)
                 h = _n(harga)
+                if kat == "Pendamping":
+                    h = 0.0                        # lauk pendamping selalu Free
                 if kat is None:
                     cat.append(f"Jenis “{_t(jenis)}” pada “{nama}” tidak dikenal, dilewati.")
                 elif h is None:
@@ -93,7 +95,9 @@ def terapkan(store, hasil: dict) -> dict:
     n = {}
     if hasil["makanan"]:
         lama = store.all("Menu")
-        simpan = [r._asdict() for r in lama.itertuples(index=False) if r.kategori == "Minuman"]
+        _ada_pend = any(m["kategori"] == "Pendamping" for m in hasil["makanan"])
+        simpan = [r._asdict() for r in lama.itertuples(index=False)
+                  if r.kategori == "Minuman" or (r.kategori == "Pendamping" and not _ada_pend)]
         rows = [{"id": f"m{i:03d}", "kategori": m["kategori"], "nama": m["nama"], "harga": m["harga"], "hpp": m["hpp"], "aktif": "1"}
                 for i, m in enumerate(hasil["makanan"], 1)]
         store.replace_all("Menu", simpan + rows)
@@ -116,7 +120,7 @@ def menu_harian_rows(store, tgl_iso: str) -> list[dict]:
     rows = []
     for r in store.all("Menu").itertuples():
         if r.kategori != "Minuman" and r.aktif != "0":
-            rows.append({"tanggal": tgl_iso, "menu_id": r.id, "kategori": r.kategori, "nama": r.nama, "harga": int(float(r.harga or 0)),
+            rows.append({"tanggal": tgl_iso, "menu_id": r.id, "kategori": r.kategori, "nama": r.nama, "harga": 0 if r.kategori == "Pendamping" else int(float(r.harga or 0)),
                          "hpp": int(float(r.hpp or 0)), "batas_stok": 0, "stok": "", "alternatif": ""})
     for r in store.all("Minuman").itertuples():
         if r.ready == "1":

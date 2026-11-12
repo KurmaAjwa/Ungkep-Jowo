@@ -119,3 +119,9 @@ Kucing yang "berpindah tempat tanpa bergerak" disebabkan sisa status lompat (`fl
 - Nasi: Nasi putih (3.000) atau Nasi Kuning (5.000, atau harga item "Nasi Kuning" di menu).
 - Lauk: hanya lauk menu harian tanggal itu + Telur Dadar + kerupuk.
 - Minuman kedua muncul setelah minuman pertama dipilih.
+
+## Lauk pendamping Free
+- Jenis menu master baru: **Pendamping** (capjay, tumis sawi, dst). Harga otomatis Free (0).
+- Di tab Menu harian muncul kelompok "LAUK PENDAMPING (FREE)": centang yang tersedia hari itu.
+- Di dialog Input pesanan: Nasi, lauk menu harian, dan pendamping tercentang otomatis (kerupuk & minuman tidak). Pendamping disimpan sebagai "Free <nama>".
+- Excel menu: Jenis "Pendamping" didukung (harga boleh kosong).

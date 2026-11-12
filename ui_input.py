@@ -16,7 +16,8 @@ def _rp(n: float) -> str:
     return logic.rupiah(n) if n else "–"
 
 
-def tambah_ke_pesanan(store, tgl: date, nama: str, baru: list[dict], oleh: str, buat_akun: bool = False) -> str | None:
+def tambah_ke_pesanan(store, tgl: date, nama: str, baru: list[dict], oleh: str, buat_akun: bool = False,
+                      pakai_aturan: bool = True) -> str | None:
     """Tambahkan item ke pesanan `nama` pada `tgl` (jumlah dijumlahkan, pendamping gratis mengikuti aturan lauk).
     Kembalikan pesan galat atau None."""
     if not baru:
@@ -34,7 +35,8 @@ def tambah_ke_pesanan(store, tgl: date, nama: str, baru: list[dict], oleh: str, 
     gabung: dict[str, dict] = {r.item: {"kategori": r.kategori, "item": r.item, "qty": int(orders._num(r.qty)),
                                          "harga": orders._num(r.harga), "hpp": orders._num(r.hpp)} for r in milik.itertuples()}
     lunas = {(r.item, int(orders._num(r.qty))) for r in milik.itertuples() if r.status_bayar == "Lunas"}
-    for it in orders.tambah_gratis(store, [dict(i) for i in baru]):        # lauk baru otomatis membawa pendampingnya
+    # pendamping dari menu harian dicentang langsung di jendela (pakai_aturan=False); selain itu mengikuti aturan lembar Gratis
+    for it in orders.tambah_gratis(store, [dict(i) for i in baru], None if pakai_aturan else []):
         if it["item"] in gabung:
             gabung[it["item"]]["qty"] += int(it["qty"])
         else:
@@ -93,6 +95,7 @@ def _isi(besar: bool) -> None:
         lauk.append(telur)
     if not [m for m in lauk if m != telur]:
         st.caption("Menu harian lauk tanggal ini belum diisi: hanya Telur Dadar dan kerupuk yang tampil.")
+    pend = [] if hari.empty else list(hari[hari["kategori"] == "Pendamping"]["nama"])        # lauk pendamping gratis menu harian
     kerupuk = [m for m, v in kat.items() if v["kategori"] == "Lain-lain" and ("krupuk" in m.lower() or "kerupuk" in m.lower())]
     minuman = sorted([m for m, v in kat.items() if v["kategori"] == "Minuman"], key=str.lower)
     # nasi hanya dua jenis tetap: putih (bawaan Rp3.000) dan kuning (Rp5.000); harga dari menu bila ada
@@ -109,6 +112,15 @@ def _isi(besar: bool) -> None:
         col.markdown(f"**{t}**")
 
     items: list[dict] = []
+
+    def pendamping(nm: str, kunci: str) -> None:
+        item = nm if nm.lower().startswith("free") else f"Free {nm}"
+        x = st.columns(lm)
+        on = x[0].checkbox(item, value=True, key=k("c_" + kunci))
+        q = x[1].number_input("porsi", 1, 50, 1, key=k("q_" + kunci), disabled=not on, label_visibility="collapsed")
+        x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{'Free' if on else '–'}</div>", unsafe_allow_html=True)
+        if on:
+            items.append({"kategori": "Lain-lain", "item": item, "qty": int(q), "harga": 0, "hpp": 0})
 
     def baris(label: str, item: str, kunci: str, awal: bool = False, ekstra=None) -> None:
         x = st.columns(lm)
@@ -129,8 +141,11 @@ def _isi(besar: bool) -> None:
         x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{_rp(int(q * kat[pil]['harga']) if on else 0)}</div>", unsafe_allow_html=True)
         if on:
             items.append({"kategori": "Nasi", "item": pil, "qty": int(q), "harga": kat[pil]["harga"], "hpp": kat[pil]["hpp"]})
+    harian_lauk = set(hari[hari["kategori"].isin(orders.LAUK)]["nama"]) if not hari.empty else set()
     for m in lauk:
-        baris(m, m, "l_" + m)
+        baris(m, m, "l_" + m, awal=m in harian_lauk)       # lauk menu harian tercentang otomatis; Telur Dadar tambahan tidak
+    for m in pend:
+        pendamping(m, "p_" + m)
     for m in kerupuk:
         baris(m, m, "k_" + m)
     if minuman:
@@ -155,7 +170,7 @@ def _isi(besar: bool) -> None:
             st.caption("Sudah ada pesanan: " + ", ".join(f"{i['item']} ×{i['qty']}" for i in ada) + ". Item di atas akan **ditambahkan**.")
     boleh = bool(nama) and bool(items) and (not baru_nama or daftarkan)
     if st.button("Simpan", type="primary", width="stretch", disabled=not boleh, key=k("simpan")):
-        err = tambah_ke_pesanan(store, tgl, nama, items, services.user() or "admin", buat_akun=daftarkan)
+        err = tambah_ke_pesanan(store, tgl, nama, items, services.user() or "admin", buat_akun=daftarkan, pakai_aturan=not pend)
         if err:
             st.error(err)
         else:
