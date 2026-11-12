@@ -113,3 +113,9 @@ Kucing yang "berpindah tempat tanpa bergerak" disebabkan sisa status lompat (`fl
 - **Tombol ➕ Input pesanan** (Beranda, hanya admin dengan akses penuh/2FA): jendela tabel (Perbesar/Perkecil) berisi Nama (ketik; nama baru → centang untuk mendaftarkan), Nasi (putih Rp3.000 default / kuning Rp5.000, pilih salah satu), lauk, kerupuk, minuman, Porsi, Harga, Jumlah, Simpan. Item ditambahkan ke pesanan yang sudah ada; pendamping gratis lauk otomatis. Tambahkan baris `Nasi | Nasi Kuning | 5000` di lembar Makanan.
 - **🧾 Gambar tagihan** (Beranda, admin): PNG Nama | Tanggal | Total untuk pesanan belum lunas dan terkonfirmasi pada periode yang dipilih.
 - **Pendamping gratis tidak dobel** saat impor Excel: bila berkas membawa pendamping, itu yang berlaku dan pendamping lama dibuang.
+
+## Dialog Input pesanan (pembaruan)
+- Tanggal bebas dipilih (120 hari ke belakang, 60 hari ke depan).
+- Nasi: Nasi putih (3.000) atau Nasi Kuning (5.000, atau harga item "Nasi Kuning" di menu).
+- Lauk: hanya lauk menu harian tanggal itu + Telur Dadar + kerupuk.
+- Minuman kedua muncul setelah minuman pertama dipilih.

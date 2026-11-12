@@ -2,7 +2,7 @@
 Hanya untuk admin dengan akses penuh (2FA). Pesanan ditambahkan ke pesanan yang sudah ada (jumlah dijumlahkan)."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import streamlit as st
 
@@ -19,10 +19,6 @@ def _rp(n: float) -> str:
 def tambah_ke_pesanan(store, tgl: date, nama: str, baru: list[dict], oleh: str, buat_akun: bool = False) -> str | None:
     """Tambahkan item ke pesanan `nama` pada `tgl` (jumlah dijumlahkan, pendamping gratis mengikuti aturan lauk).
     Kembalikan pesan galat atau None."""
-    if tgl < logic.today_wib():
-        return "Pesanan tanggal yang sudah lewat tidak bisa diubah."
-    if orders.is_libur(store, tgl):
-        return "Tanggal ini libur pemesanan."
     if not baru:
         return "Pilih minimal satu item."
     akun = store.all("Pelanggan")
@@ -80,7 +76,8 @@ def _isi(besar: bool) -> None:
     a, b = st.columns([3, 2])
     nama_terdaftar = sorted(store.all("Pelanggan").query("role != 'admin' and aktif != '0'")["nama"].tolist(), key=str.lower)
     nama = a.selectbox("Nama", nama_terdaftar, index=None, accept_new_options=True, placeholder="Ketik nama pelanggan…", key=k("nama"))
-    tgl = b.date_input("Tanggal", value=hari_ini, min_value=hari_ini, format="DD/MM/YYYY", key=k("tgl"))
+    tgl = b.date_input("Tanggal", value=hari_ini, min_value=hari_ini - timedelta(days=120), max_value=hari_ini + timedelta(days=60),
+                       format="DD/MM/YYYY", key=k("tgl"))
     nama = " ".join(str(nama or "").split())
     baru_nama = bool(nama) and nama.upper() not in {x.upper() for x in nama_terdaftar}
     daftarkan = False
@@ -90,11 +87,21 @@ def _isi(besar: bool) -> None:
 
     kat = rekap_excel.katalog(store, tgl)
     hari = orders.menu_hari(store, tgl)
-    lauk = [x for x in (list(hari[hari["kategori"].isin(orders.LAUK)]["nama"]) if not hari.empty else [])] \
-        or [m for m, v in kat.items() if v["kategori"] in orders.LAUK]
-    nasi = sorted([m for m, v in kat.items() if v["kategori"] == "Nasi"], key=lambda m: kat[m]["harga"])
+    lauk = list(hari[hari["kategori"].isin(orders.LAUK)]["nama"]) if not hari.empty else []     # lauk yang aktif di menu harian
+    telur = next((m for m in kat if m.lower() == "telur dadar"), None)                           # selalu tersedia bila pelanggan tak suka ayam
+    if telur and telur not in lauk:
+        lauk.append(telur)
+    if not [m for m in lauk if m != telur]:
+        st.caption("Menu harian lauk tanggal ini belum diisi: hanya Telur Dadar dan kerupuk yang tampil.")
     kerupuk = [m for m, v in kat.items() if v["kategori"] == "Lain-lain" and ("krupuk" in m.lower() or "kerupuk" in m.lower())]
     minuman = sorted([m for m, v in kat.items() if v["kategori"] == "Minuman"], key=str.lower)
+    # nasi hanya dua jenis tetap: putih (bawaan Rp3.000) dan kuning (Rp5.000); harga dari menu bila ada
+    def _nasi(nm: str, harga_awal: int) -> dict:
+        v = next((kat[m] for m in kat if m.lower() == nm.lower() and kat[m]["kategori"] == "Nasi"), None)
+        return {"kategori": "Nasi", "harga": v["harga"] if v else harga_awal, "hpp": v["hpp"] if v else 0}
+    for nm, hg in (("Nasi", 3000), ("Nasi Kuning", 5000)):
+        kat.setdefault(nm, _nasi(nm, hg))
+    nasi = ["Nasi", "Nasi Kuning"]
 
     lm = [4, 1.5, 2.2] if besar else [3.4, 1.6, 2.2]
     h = st.columns(lm)
@@ -127,13 +134,17 @@ def _isi(besar: bool) -> None:
     for m in kerupuk:
         baris(m, m, "k_" + m)
     if minuman:
-        x = st.columns(lm)
-        pm = x[0].selectbox("Minuman", minuman, index=None, placeholder="Pilih minuman…", label_visibility="collapsed", key=k("minum"),
-                            format_func=lambda m: f"{m} ({logic.rupiah(kat[m]['harga'])})")
-        q = x[1].number_input("porsi", 1, 50, 1, key=k("q_minum"), disabled=pm is None, label_visibility="collapsed")
-        x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{_rp(int(q * kat[pm]['harga']) if pm else 0)}</div>", unsafe_allow_html=True)
-        if pm:
-            items.append({"kategori": "Minuman", "item": pm, "qty": int(q), "harga": kat[pm]["harga"], "hpp": kat[pm]["hpp"]})
+        for i in range(2):          # baris minuman ke-2 muncul setelah baris pertama terisi
+            if i == 1 and not st.session_state.get(k("minum0")):
+                break
+            x = st.columns(lm)
+            pm = x[0].selectbox(f"Minuman {i + 1}", minuman, index=None, placeholder="Pilih minuman…" if i == 0 else "Minuman kedua (opsional)…",
+                                label_visibility="collapsed", key=k(f"minum{i}"),
+                                format_func=lambda m: f"{m} ({logic.rupiah(kat[m]['harga'])})")
+            q = x[1].number_input("porsi", 1, 50, 1, key=k(f"q_minum{i}"), disabled=pm is None, label_visibility="collapsed")
+            x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{_rp(int(q * kat[pm]['harga']) if pm else 0)}</div>", unsafe_allow_html=True)
+            if pm:
+                items.append({"kategori": "Minuman", "item": pm, "qty": int(q), "harga": kat[pm]["harga"], "hpp": kat[pm]["hpp"]})
 
     total = sum(int(i["qty"] * i["harga"]) for i in items)
     st.markdown(f"<div style='display:flex;justify-content:space-between;border-top:2px solid var(--line,#E9D3B0);margin-top:.4rem;padding-top:.4rem;font-size:1.05rem'>"
