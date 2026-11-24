@@ -140,9 +140,9 @@ with tab_harian:
                 if sub.empty:
                     continue
                 st.markdown("**LAUK PENDAMPING (FREE)**" if kat == "Pendamping" else f"**{kat.upper()}**")
-                for m in sub.itertuples():
+                for _i, m in enumerate(sub.itertuples()):
                     t = terpilih.get(m.nama)
-                    k = f"{tgl.isoformat()}_{m.id}"
+                    k = f"{tgl.isoformat()}_{kat}_{_i}_{m.id}"      # id menu bisa ganda pada data lama; urutan menjamin kunci unik
                     with st.container(border=True):
                         pakai = st.toggle(m.nama, value=t is not None, key=f"hp_{k}")
                         if not pakai:
@@ -279,23 +279,52 @@ with tab_awal:
                 if _hm1 and not (_hm1["makanan"] or _hm1["minuman"]):
                     _hm1 = None
                 if _hm1:
-                    st.info(f"Berkas ini juga berisi lembar Menu: {len(_hm1['makanan'])} makanan, {len(_hm1['minuman'])} minuman, "
-                            f"{len(_hm1['gratis'])} aturan gratis. Ikut diperbarui saat kamu menekan Impor.")
-                _rc0 = rekap_excel.rencana(store, _data, menu=_hm1)
+                    _bm = menu_excel.bandingkan(store, _hm1)
+                    st.info(f"Berkas ini juga berisi lembar menu: {len(_hm1['makanan'])} makanan, {len(_hm1['minuman'])} minuman. "
+                            f"Dibanding menu di aplikasi: {len(_bm['makanan']['baru']) + len(_bm['minuman']['baru'])} nama baru, "
+                            f"{len(_bm['makanan']['harga']) + len(_bm['minuman']['harga'])} harga berbeda.")
+                    if any(_bm[x][y] for x in _bm for y in _bm[x]):
+                        with st.expander("Lihat perbedaan menu"):
+                            for _x in ("makanan", "minuman"):
+                                if _bm[_x]["baru"]:
+                                    st.markdown(f"**{_x.title()} baru:** " + ", ".join(_bm[_x]["baru"]))
+                                if _bm[_x]["harga"]:
+                                    st.markdown(f"**Harga berbeda ({_x}):**\n" + "\n".join(f"- {t}" for t in _bm[_x]["harga"]))
+                    if not st.checkbox("Terapkan juga menu dari berkas ini (tambah yang baru & ubah harga; menu lain TIDAK dihapus)",
+                                       value=False, key="xl_menu_on"):
+                        _hm1 = None
                 _akun = [n for n in store.all("Pelanggan")["nama"]]
+                _rc0 = rekap_excel.rencana(store, _data, menu=_hm1)
                 _menu = sorted(rekap_excel.katalog(store, max(_data)))
-                peta_i, peta_n = {}, {}
+                peta_i, peta_n, tambahan, daftar_baru = {}, {}, {}, []
                 if _rc0["tak_dikenal"]:
-                    st.warning("Item berikut tidak dikenali. Pilih padanannya atau biarkan untuk dilewati.")
+                    st.warning("Item berikut belum ada di menu. Pilih padanannya, **daftarkan sebagai menu baru** (sekalian isi harga), atau lewati.")
+                    _pil_mk, _pil_mn = "➕ Daftarkan sebagai makanan", "➕ Daftarkan sebagai minuman"
                     for k, n in _rc0["tak_dikenal"].items():
-                        v = st.selectbox(f"{k} ({n}x)", ["(lewati)"] + _menu, key=f"xl_i_{k}")
-                        peta_i[k] = None if v == "(lewati)" else v
+                        with st.container(border=True):
+                            v = st.selectbox(f"{k} ({n}x)", ["(lewati)", _pil_mk, _pil_mn] + _menu, key=f"xl_i_{k}")
+                            if v in (_pil_mk, _pil_mn):
+                                nm_baru = " ".join(k.title().split())
+                                cc1, cc2 = st.columns([2, 1])
+                                if v == _pil_mk:
+                                    jenis = cc1.selectbox("Jenis", ["Lauk", "Nasi", "Lain-lain", "Pendamping"], key=f"xl_j_{k}")
+                                else:
+                                    jenis = "Minuman"
+                                    cc1.caption("Jenis: Minuman")
+                                harga = 0 if jenis == "Pendamping" else int(cc2.number_input("Harga (Rp)", 0, 1000000, 0, 500, key=f"xl_h_{k}"))
+                                if jenis == "Pendamping":
+                                    cc2.caption("Free")
+                                tambahan[nm_baru] = {"kategori": jenis, "harga": float(harga), "hpp": 0.0}
+                                daftar_baru.append({"nama": nm_baru, "jenis": jenis, "harga": harga})
+                                peta_i[k] = nm_baru
+                            else:
+                                peta_i[k] = None if v == "(lewati)" else v
                 if _rc0["nama_baru"]:
                     st.info("Nama berikut belum punya akun. Pilih akun yang sudah ada, atau biarkan untuk dibuatkan akun baru.")
                     for k, n in _rc0["nama_baru"].items():
                         v = st.selectbox(f"{k} ({n} baris)", ["(buat akun baru)"] + _akun, key=f"xl_n_{k}")
                         peta_n[k] = None if v == "(buat akun baru)" else v
-                _rc = rekap_excel.rencana(store, _data, peta_i, peta_n, menu=_hm1)
+                _rc = rekap_excel.rencana(store, _data, peta_i, peta_n, menu=_hm1, tambahan=tambahan)
                 _rows = rekap_excel.ringkas(store, _rc)
                 st.dataframe(pd.DataFrame([{"Tanggal": r["tanggal"].strftime("%d %b %Y"), "Pelanggan": r["pelanggan"],
                                             "Total": logic.rupiah(r["total"]),
@@ -320,6 +349,8 @@ with tab_awal:
                 if st.button("Impor (gabung)" if not _ganti_penuh else "Impor & ganti penuh", type="primary", disabled=not _ok, width="stretch", key="xl_go"):
                     if _hm1:
                         menu_excel.terapkan(store, _hm1)
+                    if daftar_baru:
+                        menu_excel.daftarkan(store, daftar_baru)
                     h = rekap_excel.impor(store, _rc, True, services.sandi_awal(), ganti_penuh=_ganti_penuh)
                     st.session_state["_xl_ok"] = (f"Selesai: {h['pesanan']} pesanan pada {', '.join(h['tanggal'])}; {h['akun_baru']} akun baru. "
                                                   "Data yang tidak ada di berkas tetap utuh." if not _ganti_penuh else f"Selesai (ganti penuh): {h['pesanan']} pesanan.")
@@ -352,7 +383,8 @@ with tab_awal:
                 _pasang = st.date_input("Pasang juga sebagai menu harian tanggal (opsional)", value=None, format="DD/MM/YYYY", key="mx_tgl")
                 if st.button("Terapkan menu", type="primary", width="stretch", key="mx_go"):
                     _n = menu_excel.terapkan(store, _hm)
-                    _msg = f"Menu diterapkan: {_n.get('makanan', 0)} makanan, {_n.get('minuman', 0)} minuman."
+                    _msg = (f"Menu digabung: makanan {_n.get('makanan_baru', 0)} baru / {_n.get('makanan_ubah', 0)} diperbarui, "
+                            f"minuman {_n.get('minuman_baru', 0)} baru / {_n.get('minuman_ubah', 0)} diperbarui. Menu lain tidak dihapus.")
                     if _pasang:
                         _rows = menu_excel.menu_harian_rows(store, _pasang.isoformat())
                         store.replace_where("MenuHarian", "tanggal", _pasang.isoformat(), _rows)

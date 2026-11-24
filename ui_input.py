@@ -113,14 +113,20 @@ def _isi(besar: bool) -> None:
 
     items: list[dict] = []
 
-    def pendamping(nm: str, kunci: str) -> None:
-        item = nm if nm.lower().startswith("free") else f"Free {nm}"
+    def pendamping(daftar: list[str]) -> None:
+        """Pendamping gratis hari itu = SATU paket (mis. "Free Balado Tahu, Orek Tempe Dan Bihun Goreng"), ikut jumlah porsi lauk.
+        Hanya ada bila ada lauk yang dicentang: menambah es teh saja tidak membawa pendamping."""
+        nama = [n[5:].strip() if n.lower().startswith("free ") else n for n in daftar]
+        item = "Free " + (", ".join(nama[:-1]) + " Dan " + nama[-1] if len(nama) > 1 else nama[0]).title()
+        n_lauk = sum(i["qty"] for i in items if i["kategori"] in orders.LAUK)
         x = st.columns(lm)
-        on = x[0].checkbox(item, value=True, key=k("c_" + kunci))
-        q = x[1].number_input("porsi", 1, 50, 1, key=k("q_" + kunci), disabled=not on, label_visibility="collapsed")
-        x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{'Free' if on else '–'}</div>", unsafe_allow_html=True)
-        if on:
-            items.append({"kategori": "Lain-lain", "item": item, "qty": int(q), "harga": 0, "hpp": 0})
+        on = x[0].checkbox(item, value=True, key=k("c_pend"), disabled=n_lauk == 0)
+        x[1].markdown(f"<div style='padding-top:.45rem'>{n_lauk if on and n_lauk else '–'}</div>", unsafe_allow_html=True)
+        x[2].markdown(f"<div style='text-align:right;padding-top:.45rem'>{'Free' if on and n_lauk else '–'}</div>", unsafe_allow_html=True)
+        if n_lauk == 0:
+            x[0].caption("Ikut lauk: centang lauk dulu")
+        if on and n_lauk:
+            items.append({"kategori": "Lain-lain", "item": item, "qty": int(n_lauk), "harga": 0, "hpp": 0})
 
     def baris(label: str, item: str, kunci: str, awal: bool = False, ekstra=None) -> None:
         x = st.columns(lm)
@@ -144,8 +150,8 @@ def _isi(besar: bool) -> None:
     harian_lauk = set(hari[hari["kategori"].isin(orders.LAUK)]["nama"]) if not hari.empty else set()
     for m in lauk:
         baris(m, m, "l_" + m, awal=m in harian_lauk)       # lauk menu harian tercentang otomatis; Telur Dadar tambahan tidak
-    for m in pend:
-        pendamping(m, "p_" + m)
+    if pend:
+        pendamping(pend)
     for m in kerupuk:
         baris(m, m, "k_" + m)
     if minuman:

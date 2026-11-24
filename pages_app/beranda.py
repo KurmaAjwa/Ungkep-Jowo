@@ -235,6 +235,12 @@ if admin:       # alat admin: input pesanan (khusus akses penuh) dan gambar tagi
     import tagihan_img
     _b2.download_button("🧾 Gambar tagihan", data=lambda: tagihan_img.buat_gambar(store, kode, logic.label_periode(start, end)),
                         file_name=f"tagihan_{kode}.png", mime="image/png", on_click="ignore", width="stretch", key="btn_tagihan")
+if admin:
+    import ekspor_excel
+    st.download_button("📊 Unduh Excel periode (semua tanggal)",
+                       data=lambda: ekspor_excel.buat_excel(store, kode, logic.label_periode(start, end)),
+                       file_name=f"rekap_pembelian_{kode}.xlsx", on_click="ignore", width="stretch", key="btn_excel",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 if admin and services._rahasia_2fa():
     st.caption(f"🔓 Akses penuh terbuka · sisa {services.sisa_penuh() // 60} menit" if services.is_penuh()
                else "🔒 Mode terbatas: boleh memesankan, menambah pesanan, konfirmasi revisi, dan membalas chat. Ketuk Krish dua kali untuk akses penuh.")

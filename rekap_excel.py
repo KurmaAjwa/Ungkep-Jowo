@@ -126,7 +126,8 @@ def cocokkan(teks: str, daftar: list[str]) -> str | None:
     q = set(_token(teks))
     if not q:
         return None
-    terbaik, skor_terbaik = None, (-1, -1.0)
+    terbaik, skor_terbaik = None, (-1, -1, -1.0)
+    persis = " ".join(str(teks).upper().split())
     for nama in daftar:
         c = set(_token(nama))
         if not c:
@@ -136,7 +137,7 @@ def cocokkan(teks: str, daftar: list[str]) -> str | None:
         jacc = inter / len(q | c)
         if contain < 1.0 and jacc < 0.75:
             continue
-        skor = (1 if contain >= 1.0 else 0, jacc)
+        skor = (1 if " ".join(nama.upper().split()) == persis else 0, 1 if contain >= 1.0 else 0, jacc)
         if skor > skor_terbaik:
             terbaik, skor_terbaik = nama, skor
     return terbaik
@@ -168,7 +169,8 @@ _FREE = re.compile(r"\(\s*FREE\s+([^)]+)\)", re.I)
 
 
 def rencana(store, data: dict[date, list[tuple[str, str]]], peta_item: dict[str, str | None] | None = None,
-            peta_nama: dict[str, str | None] | None = None, menu: dict | None = None) -> dict:
+            peta_nama: dict[str, str | None] | None = None, menu: dict | None = None,
+            tambahan: dict[str, dict] | None = None) -> dict:
     """Susun pesanan dari hasil baca() tanpa menulis apa pun.
     peta_item: {teks Excel -> nama item | None(lewati)} untuk item yang tidak dikenali.
     peta_nama: {nama Excel -> nama akun | None(buat akun baru)} untuk nama yang belum punya akun."""
@@ -182,7 +184,9 @@ def rencana(store, data: dict[date, list[tuple[str, str]]], peta_item: dict[str,
     tak_dikenal: dict[str, int] = {}
     per_tgl: dict[date, dict[str, dict[str, dict]]] = {}
     for tgl, rows in sorted(data.items()):
-        kat = katalog(store, tgl, menu["katalog"] if menu else None)
+        ekstra = dict(menu["katalog"]) if menu else {}
+        ekstra.update(tambahan or {})          # item baru yang akan didaftarkan (nama -> kategori, harga)
+        kat = katalog(store, tgl, ekstra or None)
         daftar = list(kat)
         pesanan: dict[str, dict[str, dict]] = {}
         for nama_x, teks in rows:
@@ -247,11 +251,14 @@ def gabung(lama: dict[str, dict], baru: dict[str, dict], gr: set[str] | None = N
     gr = gr or set()
     free_baru = {k for k, v in baru.items() if _gratis(k, v, gr)}
     out = {k: dict(v) for k, v in lama.items() if not (free_baru and _gratis(k, v, gr))}
+    low = {k.lower(): k for k in out}          # nama yang sama beda huruf besar/kecil dianggap satu item
     for k, v in baru.items():
+        k = low.get(k.lower(), k)
         if k in out and not _gratis(k, v, gr):
             out[k].update({"qty": max(out[k]["qty"], v["qty"]), "harga": v["harga"], "hpp": v["hpp"]})   # harga mengikuti berkas
         else:
             out[k] = dict(v)
+        low[k.lower()] = k
     return out
 
 

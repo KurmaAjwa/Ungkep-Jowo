@@ -90,29 +90,119 @@ def baca(data: bytes) -> dict:
             "aturan": [(g["lauk"], g["pendamping"]) for g in gratis]}
 
 
-def terapkan(store, hasil: dict) -> dict:
-    """Tulis ke menu master, minuman, dan aturan gratis. Hanya bagian yang ada di berkas yang diganti."""
+def _id_baru(ada: list[str]) -> str:
+    angka = [int(i[1:]) for i in ada if len(i) > 1 and i[0] == "m" and i[1:].isdigit()]
+    return f"m{(max(angka) if angka else 0) + 1:03d}"
+
+
+def bandingkan(store, hasil: dict) -> dict:
+    """Apa yang akan berubah di menu master/minuman bila berkas diterapkan (tanpa menulis apa pun)."""
+    lama = {r.nama.lower(): r for r in store.all("Menu").itertuples()}
+    mk = {"baru": [], "harga": []}
+    for m in hasil["makanan"]:
+        r = lama.get(m["nama"].lower())
+        if r is None:
+            mk["baru"].append(m["nama"])
+        elif int(float(r.harga or 0)) != int(m["harga"]) and m["kategori"] != "Pendamping":
+            mk["harga"].append(f"{m['nama']}: {int(float(r.harga or 0)):,} → {int(m['harga']):,}".replace(",", "."))
+    lm = {" ".join(f"{r.nama} {r.varian}".split()).lower(): r for r in store.all("Minuman").itertuples()}
+    mn = {"baru": [], "harga": []}
+    for m in hasil["minuman"]:
+        nm = (m["nama"] + " " + m["varian"]).strip()
+        r = lm.get(nm.lower())
+        if r is None:
+            mn["baru"].append(nm)
+        elif int(float(r.harga or 0)) != int(m["harga"]):
+            mn["harga"].append(f"{nm}: {int(float(r.harga or 0)):,} → {int(m['harga']):,}".replace(",", "."))
+    return {"makanan": mk, "minuman": mn}
+
+
+def terapkan(store, hasil: dict, ganti: bool = False) -> dict:
+    """Tulis ke menu master, minuman, dan aturan gratis.
+    Bawaan: GABUNG. Nama yang sama diperbarui harganya (id, modal, status aktif/ready tetap), nama baru ditambahkan,
+    menu yang tidak ada di berkas TIDAK dihapus. ganti=True: master diganti seluruhnya oleh berkas (jarang dipakai)."""
     n = {}
     if hasil["makanan"]:
         lama = store.all("Menu")
-        _ada_pend = any(m["kategori"] == "Pendamping" for m in hasil["makanan"])
-        simpan = [r._asdict() for r in lama.itertuples(index=False)
-                  if r.kategori == "Minuman" or (r.kategori == "Pendamping" and not _ada_pend)]
-        rows = [{"id": f"m{i:03d}", "kategori": m["kategori"], "nama": m["nama"], "harga": m["harga"], "hpp": m["hpp"], "aktif": "1"}
-                for i, m in enumerate(hasil["makanan"], 1)]
-        store.replace_all("Menu", simpan + rows)
-        store.replace_all("Gratis", hasil["gratis"])
-        n["makanan"] = len(rows)
+        if ganti:
+            _ada_pend = any(m["kategori"] == "Pendamping" for m in hasil["makanan"])
+            keep = [r._asdict() for r in lama.itertuples(index=False)
+                    if r.kategori == "Minuman" or (r.kategori == "Pendamping" and not _ada_pend)]
+            rows = []
+        else:
+            keep = [r._asdict() for r in lama.itertuples(index=False)]
+            rows = []
+        semua = keep + rows
+        idx = {r["nama"].lower(): r for r in semua}
+        tambah = ubah = 0
+        for m in hasil["makanan"]:
+            r = idx.get(m["nama"].lower())
+            if r is not None:
+                r["kategori"], r["harga"] = m["kategori"], m["harga"]
+                ubah += 1
+            else:
+                r = {"id": _id_baru([x["id"] for x in semua]), "kategori": m["kategori"], "nama": m["nama"],
+                     "harga": m["harga"], "hpp": m["hpp"], "aktif": "1"}
+                semua.append(r)
+                idx[m["nama"].lower()] = r
+                tambah += 1
+        seen = set()                     # id ganda (data lama) dirapikan supaya kunci widget tidak bentrok
+        for r in semua:
+            if not r["id"] or r["id"] in seen:
+                r["id"] = _id_baru([x["id"] for x in semua if x["id"]] + list(seen))
+            seen.add(r["id"])
+        store.replace_all("Menu", semua)
+        if hasil["gratis"]:
+            store.replace_all("Gratis", hasil["gratis"])
+        n["makanan"] = len(hasil["makanan"])
+        n["makanan_baru"], n["makanan_ubah"] = tambah, ubah
     if hasil["minuman"]:
-        seen, rows = set(), []
+        lama = store.all("Minuman")
+        semua = [] if ganti else [r._asdict() for r in lama.itertuples(index=False)]
+        idx = {" ".join(f"{r['nama']} {r['varian']}".split()).lower(): r for r in semua}
+        tambah = ubah = 0
         for m in hasil["minuman"]:
-            k = (m["nama"].lower(), m["varian"].lower())
-            if k not in seen:
-                seen.add(k)
-                rows.append(m)
-        store.replace_all("Minuman", rows)
-        n["minuman"] = len(rows)
+            nm = (m["nama"] + " " + m["varian"]).strip()
+            r = idx.get(nm.lower())
+            if r is not None:
+                r["harga"] = m["harga"]                 # ready & modal tetap
+                ubah += 1
+            else:
+                r = dict(m)
+                semua.append(r)
+                idx[nm.lower()] = r
+                tambah += 1
+        store.replace_all("Minuman", semua)
+        n["minuman"] = len(hasil["minuman"])
+        n["minuman_baru"], n["minuman_ubah"] = tambah, ubah
     return n
+
+
+def daftarkan(store, baru: list[dict]) -> None:
+    """Daftarkan item yang belum ada ke menu master (Makanan/Pendamping) atau Minuman.
+    baru: [{"nama", "jenis" (Nasi|Lauk|Lain-lain|Pendamping|Minuman), "harga"}]."""
+    mk = [b for b in baru if b["jenis"] != "Minuman"]
+    mn = [b for b in baru if b["jenis"] == "Minuman"]
+    if mk:
+        lama = store.all("Menu")
+        semua = [r._asdict() for r in lama.itertuples(index=False)]
+        ada = {r["nama"].lower() for r in semua}
+        for b in mk:
+            if b["nama"].lower() in ada:
+                continue
+            ada.add(b["nama"].lower())
+            semua.append({"id": _id_baru([x["id"] for x in semua]), "kategori": b["jenis"], "nama": b["nama"],
+                          "harga": 0 if b["jenis"] == "Pendamping" else int(b["harga"]), "hpp": 0, "aktif": "1"})
+        store.replace_all("Menu", semua)
+    if mn:
+        lama = store.all("Minuman")
+        semua = [r._asdict() for r in lama.itertuples(index=False)]
+        ada = {" ".join(f"{r['nama']} {r['varian']}".split()).lower() for r in semua}
+        for b in mn:
+            if b["nama"].lower() not in ada:
+                ada.add(b["nama"].lower())
+                semua.append({"nama": b["nama"], "varian": "", "harga": int(b["harga"]), "hpp": 0, "ready": "1"})
+        store.replace_all("Minuman", semua)
 
 
 def menu_harian_rows(store, tgl_iso: str) -> list[dict]:

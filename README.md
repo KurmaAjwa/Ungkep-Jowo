@@ -125,3 +125,10 @@ Kucing yang "berpindah tempat tanpa bergerak" disebabkan sisa status lompat (`fl
 - Di tab Menu harian muncul kelompok "LAUK PENDAMPING (FREE)": centang yang tersedia hari itu.
 - Di dialog Input pesanan: Nasi, lauk menu harian, dan pendamping tercentang otomatis (kerupuk & minuman tidak). Pendamping disimpan sebagai "Free <nama>".
 - Excel menu: Jenis "Pendamping" didukung (harga boleh kosong).
+
+## Pembaruan 25 Nov 2026
+- Impor Excel: menu dari berkas kini **digabung** (tidak menimpa master) dan hanya diterapkan bila dicentang; ada laporan perbedaan menu.
+- Item tak dikenal saat impor bisa langsung didaftarkan sebagai makanan/minuman baru + harga.
+- Tombol "📊 Unduh Excel periode": lembar Pesanan (bisa diimpor ulang), Makanan, Minuman, Pendamping Free, Ringkasan (`ekspor_excel.py`).
+- Dialog Input pesanan: pendamping = satu paket, hanya ikut bila ada lauk dicentang.
+- Perbaikan DuplicateElementKey di Menu harian (id menu ganda).
